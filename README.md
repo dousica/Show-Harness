@@ -46,7 +46,7 @@ https://github.com/user-attachments/assets/bd2d31db-f5c5-4554-85bb-2aa206876ac7
 
 ## 🔥 News
 
-- [x] `2026.09` Beyond Show-Harness, we release [Awesome Multimodal Embodied Agents](https://github.com/showlab/Awesome-Multimodal-Embodied-Agent), our survey of the **Agent + Robot** landscape from computer-use to **robot-use**.
+- [x] `2026.09` Beyond Show-Harness, we release **Awesome Multimodal Embodied Agents** [[Page](https://showlab.github.io/Awesome-Multimodal-Embodied-Agent/), [Github](https://github.com/showlab/Awesome-Multimodal-Embodied-Agent), [Paper](https://arxiv.org/abs/2610.30108)], our survey of the **Agent + Robot** landscape from computer-use to **robot-use**.
 - [x] `2026.09` Public release: the harness, GUMI collectors, the plugin suite, and the training pipeline.
 - [x] `2026.09` Six LoRA adapters on [🤗 Show-Harness-VLMs](https://huggingface.co/showlab/Show-Harness-VLMs) and the demonstration corpus on [🤗 Show-Harness-Data](https://huggingface.co/datasets/showlab/Show-Harness-Data).
 
