@@ -60,7 +60,8 @@ def g1d_ros_environment_errors(
         if not has_lzh_overlay:
             errors.append(
                 f"AMENT_PREFIX_PATH does not contain {expected_install}; "
-                "source third_party/g1d_ros2_lzh/setup_env.sh"
+                f"source {workspace / 'setup_env.sh'} "
+                f"(or set LZH_ROS_WS to the workspace you build)"
             )
     return errors
 
