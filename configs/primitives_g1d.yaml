@@ -1,0 +1,34 @@
+# Atomic-motion primitives for the Unitree G1-D single arm.
+#
+# Same schema as configs/primitives_franka.yaml. step_m / yaw_step_rad are the
+# metric distance / angle one MV_* / ROTATE_* step moves the end effector.
+#
+# The G1-D arm is planned in the `torso_link` frame (the SRDF chain base of
+# `left_arm` / `right_arm`), and the harness's atomic controller applies the
+# vectors below directly in that base frame.
+#
+# !! SIGNS ARE UNVERIFIED ON HARDWARE !!
+# The values below are the base-frame convention (robot's LEFT is base -Y,
+# RIGHT is base +Y, matching the Franka rig). They MUST be checked on the real
+# arm before any autonomous motion: teleop with fine steps and tap each key
+# once, then flip the sign of any axis that moves the wrong way. A wrong sign
+# here means MV_DOWN drives the arm UP -- which the z-floor in
+# configs/robot_g1d.yaml will then happily allow.
+step_m: 0.02
+yaw_step_rad: 0.15
+# Per-command translation clamp (meters). The G1-D's own per-segment path limit
+# is 0.2618 rad (15 deg); this is the Cartesian side of the same idea.
+osc_translation_output_max_m: 0.05
+osc_rotation_output_max_rad: 0.5
+
+atomic_primitives:
+  MV_FWD: [1.0, 0.0, 0.0]
+  MV_BACK: [-1.0, 0.0, 0.0]
+  # Base frame: the robot's LEFT is base -Y and RIGHT is base +Y.
+  MV_LEFT: [0.0, -1.0, 0.0]
+  MV_RIGHT: [0.0, 1.0, 0.0]
+  MV_UP: [0.0, 0.0, 1.0]
+  MV_DOWN: [0.0, 0.0, -1.0]
+  # Yaw about base +Z. Check the sense on hardware before autonomous motion.
+  ROTATE_CW: 1.0
+  ROTATE_CCW: -1.0

@@ -31,6 +31,38 @@ DAGGER_NEEDS_WINDOW = (
 )
 
 
+class _DisabledVideoRef:
+    """Stand-in for the reference-video plugin when it is switched off.
+
+    Building the real plugin pulls in imageio/numpy/PIL, which are video-only
+    dependencies. A rig that never uses a reference video (e.g. G1-D) should
+    not have to install them just to run. The stub answers the same calls with
+    the plugin's "disabled" values, so the callers do not need to special-case
+    it.
+    """
+
+    enabled = False
+    video_path = None
+    num_frames = 0
+    brief: dict[str, Any] = {}
+    sampled_indices: tuple[int, ...] = ()
+
+    def install(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+    def render_prompt(self) -> str:
+        return ""
+
+    def extract_brief(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {}
+
+    def summary_lines(self) -> list[str]:
+        return []
+
+    def metadata(self) -> dict:
+        return {}
+
+
 def install_dagger(
     plugins: PluginsConfig,
     viewer: Any,
@@ -80,10 +112,15 @@ def build_video_ref(
 
     Config errors raise HERE, before any VLM cost.
     """
+    enabled = plugins.enabled("video_ref", default=False) or bool(video_ref_arg)
+    if not enabled:
+        # Lazy: do not pull imageio/numpy/PIL when the plugin is off.
+        return _DisabledVideoRef()
+
     from plugins.video_ref import VideoRefPlugin  # lazy: pulls imageio/numpy/PIL
 
     plugin = VideoRefPlugin(
-        enabled=plugins.enabled("video_ref", default=False) or bool(video_ref_arg),
+        enabled=True,
         video_path=video_ref_arg or cfg.get("video_ref_path"),
         num_frames=int(cfg.get("video_ref_frames", 8)),
         single=single,

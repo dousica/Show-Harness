@@ -1,0 +1,145 @@
+kind: eye_to_hand
+method: Park-Martin rotation-log SVD + translation LS
+reference_doi: 10.1109/70.326576
+base_frame: torso_link
+camera_frame: head_left_camera_optical_frame
+tcp_frame: left_dex1_tcp_link
+units: meters
+transform_convention: X_torso = R_torso_camera @ X_camera + t_torso_camera_m
+T_torso_camera:
+- - 0.011651598416104077
+  - -0.7512316786380485
+  - 0.6599357584379032
+  - 0.06545640372122435
+- - -0.9998835086674581
+  - -0.002245711536551398
+  - 0.015097214132057224
+  - 0.025402171790573358
+- - -0.009859480169077228
+  - -0.6600347883182793
+  - -0.7511703327877381
+  - 0.4342173394661525
+- - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+T_tcp_board:
+- - 0.016692675761725166
+  - -0.9991965478903784
+  - 0.03643642764962546
+  - 0.17658998389797415
+- - 0.9995270845391956
+  - 0.015734767765022032
+  - -0.026420150566498865
+  - -0.0982256206762156
+- - 0.025825604513535654
+  - 0.036860219306635134
+  - 0.9989866677709864
+  - 0.009964694315498268
+- - 0.0
+  - 0.0
+  - 0.0
+  - 1.0
+rotation_excitation_singular_values:
+- 24.506171162207504
+- 8.4318032111408
+- 4.604633973158744
+intrinsics_sha256: 3ee1272786d37f1a8026f43c65580069994f759ef32c0e28d7da32986fe98735
+training_consistency:
+  count: 29
+  translation_rms_mm: 2.207422166217969
+  rotation_rms_deg: 0.5577468996625699
+  per_sample:
+  - sample: training_001.png
+    translation_mm: 3.4119410516430335
+    rotation_deg: 0.7429339137061758
+  - sample: training_002.png
+    translation_mm: 2.0650779855760404
+    rotation_deg: 0.6361412052281576
+  - sample: training_003.png
+    translation_mm: 1.8880629129555933
+    rotation_deg: 0.527155985336715
+  - sample: training_004.png
+    translation_mm: 0.6206218100097995
+    rotation_deg: 0.4366987262639607
+  - sample: training_005.png
+    translation_mm: 1.2603723487382283
+    rotation_deg: 0.37904522589764295
+  - sample: training_006.png
+    translation_mm: 1.6456950578060758
+    rotation_deg: 0.2915390606103224
+  - sample: training_007.png
+    translation_mm: 0.7783579278308496
+    rotation_deg: 0.2585840404516797
+  - sample: training_008.png
+    translation_mm: 3.318459469780257
+    rotation_deg: 0.4684676687666015
+  - sample: training_009.png
+    translation_mm: 1.9091611849866863
+    rotation_deg: 0.14675838704214414
+  - sample: training_010.png
+    translation_mm: 1.9771072239527778
+    rotation_deg: 0.19079377484789184
+  - sample: training_011.png
+    translation_mm: 0.6293573102090911
+    rotation_deg: 0.3169147906311289
+  - sample: training_012.png
+    translation_mm: 1.5708481351669248
+    rotation_deg: 0.09402739627625119
+  - sample: training_013.png
+    translation_mm: 4.171627204893689
+    rotation_deg: 2.002482492475795
+  - sample: training_014.png
+    translation_mm: 1.2216742779399714
+    rotation_deg: 0.252719544582533
+  - sample: training_015.png
+    translation_mm: 0.6846778972549811
+    rotation_deg: 0.11432476165838676
+  - sample: training_016.png
+    translation_mm: 1.3718821729284116
+    rotation_deg: 0.590589363527201
+  - sample: training_017.png
+    translation_mm: 2.0046307633089806
+    rotation_deg: 0.8262491619066779
+  - sample: training_018.png
+    translation_mm: 2.8746500656778147
+    rotation_deg: 0.5299693825287172
+  - sample: training_019.png
+    translation_mm: 2.9501613147053423
+    rotation_deg: 0.6863164319081336
+  - sample: training_020.png
+    translation_mm: 2.450497324623608
+    rotation_deg: 0.21546089017955103
+  - sample: training_021.png
+    translation_mm: 0.9892150808095228
+    rotation_deg: 0.18109742786298832
+  - sample: training_022.png
+    translation_mm: 0.6662179024330763
+    rotation_deg: 0.24404110763321174
+  - sample: training_023.png
+    translation_mm: 2.8723397171462075
+    rotation_deg: 0.35933390997263
+  - sample: training_024.png
+    translation_mm: 3.135565611004752
+    rotation_deg: 0.20603250866925013
+  - sample: training_025.png
+    translation_mm: 4.031026724640261
+    rotation_deg: 0.24259277377439956
+  - sample: training_026.png
+    translation_mm: 2.250131847432901
+    rotation_deg: 0.22127775312058218
+  - sample: training_027.png
+    translation_mm: 1.6195304278772638
+    rotation_deg: 0.6634038819935153
+  - sample: training_028.png
+    translation_mm: 1.3301122241761119
+    rotation_deg: 0.24214554219495218
+  - sample: training_029.png
+    translation_mm: 1.2943166956267913
+    rotation_deg: 0.356049859148658
+held_out_consistency:
+  count: 0
+  per_sample: []
+assessment: Pose-consistency diagnostics; not independent metric ground-truth accuracy
+camera_coordinates: Original left optical frame, NOT stereo-rectified frame
+auto_published_tf: false

@@ -154,6 +154,9 @@ The full walkthroughs are in [docs/franka.md](docs/franka.md) and
 [docs/piper.md](docs/piper.md); simulators in
 [docs/simulators.md](docs/simulators.md).
 
+For the Unitree G1-D adapter, ROS 2 transport, calibration, and commissioning
+notes, see [docs/g1d.md](docs/g1d.md).
+
 ### 4. Repository layout
 
 | Path | What it is |
@@ -167,7 +170,7 @@ The full walkthroughs are in [docs/franka.md](docs/franka.md) and
 | `scripts/` | Rig bring-up, calibration capture, serving, data collection, and per-simulator batch evaluation (`scripts/<sim>/eval_batch.sh`) |
 | `train/` | The fine-tuning pipeline: data conversion, dataset registration, LoRA configs ([train/README.md](train/README.md)) |
 | `models/` | Chat templates, downloaded adapters, the HuggingFace cache ([models/README.md](models/README.md)) |
-| `docs/` | Per-rig runbooks and the fine-tuned mode guide |
+| `docs/` | Per-rig runbooks, including [G1-D](docs/g1d.md), and the fine-tuned mode guide |
 
 ---
 

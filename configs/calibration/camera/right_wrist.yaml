@@ -1,0 +1,26 @@
+image_width: 640
+image_height: 480
+camera_name: right_wrist
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [302.26052,   0.     , 311.87101,
+           0.     , 302.04045, 247.72478,
+           0.     ,   0.     ,   1.     ]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.069219, -0.090992, -0.000178, -0.000745, 0.026491]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1., 0., 0.,
+         0., 1., 0.,
+         0., 0., 1.]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [301.8876 ,   0.     , 309.8796 ,   0.     ,
+           0.     , 305.69687, 247.22802,   0.     ,
+           0.     ,   0.     ,   1.     ,   0.     ]

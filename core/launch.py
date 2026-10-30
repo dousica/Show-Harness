@@ -25,6 +25,7 @@ from interpreters.franka_atomic_controller import (
     TABLE_CONTACT_Z_M,
     FrankaAtomicController,
 )
+from interpreters.g1d_atomic_controller import G1DAtomicController
 from interpreters.piper_atomic_controller import PiperAtomicController
 from interpreters.real_atomic_controller import RealAtomicController
 import core.ui.console as console
@@ -32,6 +33,7 @@ from core.action_units import ATOMIC_ACTIONS, DONE_ATOM, GRIPPER_ATOMS, STILL_AT
 from core.config import deep_merge, make_api_key_refresher, resolve_vlm_config
 from core.record.episode_logger import EpisodeLogger
 from core.franka.franka_session import FrankaSession, FrankaSessionConfig
+from core.g1d.g1d_session import G1DSession, G1DSessionConfig
 from core.piper.config import SIDES
 from core.piper.dual_session import DualPiperSession, DualPiperSessionConfig
 from core.piper.piper_session import PiperSession, PiperSessionConfig
@@ -351,7 +353,7 @@ def make_vlm_client(args: argparse.Namespace, cfg: dict[str, Any]):
     )
 
 
-SUPPORTED_HARDWARE = ("franka", "piper")
+SUPPORTED_HARDWARE = ("franka", "piper", "g1d")
 
 
 
@@ -359,9 +361,9 @@ def resolve_hardware(args: argparse.Namespace, robot_cfg: dict[str, Any]) -> str
     """Select the hardware target from the robot config's ``hardware`` key.
 
     Selection is by which ``--robot-config`` you pass (robot_franka.yaml -> franka,
-    robot_piper.yaml -> piper), so hardware-specific constants (Z-floor, gripper
-    widths, camera identity) always travel with the matching config -- there is no
-    separate flag that could contradict it.
+    robot_piper.yaml -> piper, robot_g1d.yaml -> g1d), so hardware-specific
+    constants (Z-floor, gripper widths, camera identity) always travel with the
+    matching config -- there is no separate flag that could contradict it.
     """
     hardware = str(robot_cfg.get("hardware", "franka")).strip().lower()
     if hardware not in SUPPORTED_HARDWARE:
@@ -393,7 +395,76 @@ def resolve_primitives_path(
 def make_session(cfg: dict[str, Any], args: argparse.Namespace, hardware: str) -> Any:
     if hardware == "piper":
         return PiperSession(piper_session_config(cfg, args))
+    if hardware == "g1d":
+        return G1DSession(g1d_session_config(cfg, args))
     return FrankaSession(session_config(cfg, args))
+
+
+
+def g1d_session_config(
+    cfg: dict[str, Any], args: argparse.Namespace
+) -> G1DSessionConfig:
+    """Build the G1-D session config from the robot config + CLI overrides.
+
+    The z-floor is resolved HERE (not inside the session) so that the session,
+    the controller and the transport all share ONE floor object -- the same
+    height, the same clearance, no chance of them disagreeing about what the
+    limit is.
+    """
+    from core.g1d.g1d_session import G1DSessionConfig
+    from core.g1d.safety import resolve_z_floor
+
+    rb = cfg.get("robot", {}) or {}
+    floor = resolve_z_floor(cfg, override_m=args.z_floor_m)
+    if args.no_z_floor:
+        floor = resolve_z_floor({**cfg, "enable_z_floor": False})
+    # A live run must have a MEASURED floor. The shipped config carries a 0.0
+    # placeholder, which is not "safe": at 0.0 the TCP would be allowed all the
+    # way down to the torso origin, i.e. straight through the table. Refuse it,
+    # exactly like the Piper branch refuses a captured-at-start floor.
+    # A CALIBRATED 0.0 is fine: on the G1-D the tabletop coincides with the
+    # torso_link Z origin, so the measured table height really is ~0.0 m.
+    mock_robot = bool(args.mock_robot or rb.get("use_mock_robot", False))
+    if not mock_robot and not args.no_z_floor:
+        if not floor.enabled:
+            raise ValueError(
+                "G1-D: the Z safety floor is disabled. A live run needs a measured "
+                "floor so the arm cannot be driven into the table. Calibrate it: "
+                "python3 scripts/g1d/capture_z_floor.py --side <left|right> --capture, "
+                "then set z_floor_m in the robot config -- or pass --z-floor-m <height>."
+            )
+        if floor.z_m <= 0.0 and not floor.calibrated:
+            raise ValueError(
+                f"G1-D: z_floor_m = {floor.z_m} is the shipped PLACEHOLDER, not a "
+                "measured height (0.0 would let the TCP descend to the torso "
+                "origin). Calibrate it: python3 scripts/g1d/capture_z_floor.py "
+                "--side <left|right> --capture, then set z_floor_m in the robot "
+                "config -- or pass --z-floor-m <height>."
+            )
+    topics = cfg.get("camera_topics") or {}
+    side = str(rb.get("side", "left"))
+    return G1DSessionConfig(
+        side=side,
+        namespace=str(rb.get("bridge_namespace", "lzh")),
+        use_mock_robot=bool(args.mock_robot or rb.get("use_mock_robot", False)),
+        use_mock_cameras=bool(args.mock_cameras or rb.get("use_mock_cameras", False)),
+        open_width_m=float(rb.get("open_width_m", 0.09)),
+        head_camera_topic=str(topics.get("head_left", "/g1d/cameras/head_left/image_raw")),
+        head_right_camera_topic=str(
+            topics.get("head_right", "/g1d/cameras/head_right/image_raw")
+        ),
+        wrist_camera_topic=str(
+            topics.get(f"{side}_wrist", f"/g1d/cameras/{side}_wrist/image_raw")
+        ),
+        camera_max_age_s=float(rb.get("camera_max_age_s", 0.5)),
+        camera_connect_timeout_s=float(rb.get("camera_connect_timeout_s", 10.0)),
+        observation_resolution=int(cfg.get("camera_resolution", 256)),
+        z_floor=floor,
+        # A live G1-D run must opt in to sending trajectories explicitly; the
+        # default is dry-run (plan + validate, never execute).
+        dry_run=bool(cfg.get("dry_run", True)) or bool(args.mock_robot),
+        verbose=True,
+    )
 
 
 
@@ -627,6 +698,32 @@ def make_controller(
             piper_kwargs["ori_flex_rad"] = math.radians(float(cfg["ori_flex_deg"]))
         controller: RealAtomicController = PiperAtomicController.from_primitives_config(
             session.robot, primitives_cfg, **piper_kwargs
+        )
+    elif hardware == "g1d":
+        # The G1-D is driven through the SDK bridge's trajectory Action: one atomic
+        # token becomes ONE planned 7-joint trajectory. There is no Cartesian
+        # impedance controller to self-heal, and the smooth (min-jerk) plugin has no
+        # meaning here (there is no setpoint to ramp -- the planner produces the
+        # path), so it is not wired in.
+        g1d_kwargs = dict(common_kwargs)
+        g1d_kwargs.pop("smooth_plugin", None)
+        g1d_kwargs.pop("table_height_m", None)
+        g1d_kwargs.pop("up_step_m", None)
+        # The variable-step plugin compares against the table height; without a
+        # calibrated floor there is no reference, so it stays off.
+        g1d_kwargs["variable_step_plugin"] = None
+        # Use the SAME floor object the session holds, so the controller's
+        # setpoint clamp and the transport's trajectory check can never disagree
+        # about the limit. A "capture at start" floor is deliberately NOT
+        # supported here: a raised start pose would lock out all descent, which
+        # is exactly the failure mode the Piper branch refuses above.
+        floor = getattr(getattr(session, "config", None), "z_floor", None)
+        g1d_kwargs["z_floor_m"] = float(floor.z_m) if (floor and floor.enabled) else None
+        g1d_kwargs["capture_z_floor_on_sync"] = False
+        if cfg.get("gripper_close_threshold_m") is not None:
+            g1d_kwargs["gripper_close_threshold_m"] = float(cfg["gripper_close_threshold_m"])
+        controller = G1DAtomicController.from_primitives_config(
+            session.robot, primitives_cfg, **g1d_kwargs
         )
     else:
         controller = FrankaAtomicController.from_primitives_config(

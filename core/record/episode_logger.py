@@ -11,6 +11,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .images import StreamingVideoWriter, save_png, to_uint8_hwc
 
+# Pillow >= 9.1 exposes the resampling filters under Image.Resampling; older
+# Pillow (e.g. Ubuntu 22.04 ships 9.0) only has the module-level aliases.
+_RESAMPLE_BILINEAR = getattr(getattr(Image, "Resampling", Image), "BILINEAR")
+
 
 JSONL_REASON_LIMIT = 1500
 _SENSITIVE_METADATA_KEYS = {
@@ -444,7 +448,7 @@ def _letterbox(view: np.ndarray, size: int) -> Image.Image:
     img = Image.fromarray(to_uint8_hwc(view))
     scale = min(size / img.width, size / img.height)
     new = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
-    img = img.resize(new, Image.Resampling.BILINEAR)
+    img = img.resize(new, _RESAMPLE_BILINEAR)
     tile = Image.new("RGB", (size, size), BG_PANEL)
     tile.paste(img, ((size - new[0]) // 2, (size - new[1]) // 2))
     return tile

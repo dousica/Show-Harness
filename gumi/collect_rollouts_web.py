@@ -112,7 +112,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--robot",
         default="piper",
-        choices=["piper", "franka"],
+        choices=["piper", "franka", "g1d"],
         help="Real-hardware backend (ignored with --sim). Default: piper.",
     )
     p.add_argument("--seed", type=int, default=None, help="--sim scene layout seed.")
@@ -125,6 +125,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--arm", default=None, choices=["left", "right"], help="Piper arm to drive.")
     p.add_argument("--front-topic", default=None, help="Front (AgentView) color image topic.")
     p.add_argument("--wrist-topic", default=None, help="Wrist color image topic.")
+
+    # G1-D hardware (--robot g1d).
+    p.add_argument("--side", default=None, choices=["left", "right"],
+                   help="G1-D: which arm to drive. Default: the robot config's side.")
+    p.add_argument("--namespace", default=None,
+                   help="G1-D: SDK bridge namespace. Default: the robot config's bridge_namespace.")
+    p.add_argument("--head-topic", default=None, help="G1-D: head camera topic (AgentView).")
+    p.add_argument("--g1d-wrist-topic", default=None, help="G1-D: wrist camera topic of the selected side.")
 
     # Franka hardware (--robot franka).
     p.add_argument("--nuc-ip", default=None, help="Franka NUC IP (default: robot.nuc_ip from --robot-config).")
@@ -386,6 +394,102 @@ def build_piper_rig(args, primitives_cfg, robot_cfg):
     return session, controller, home_fn, None, meta
 
 
+def build_g1d_rig(args, primitives_cfg, robot_cfg):
+    """Real Unitree G1-D rig (one arm + the head cameras).
+
+    Wired exactly like the harness's own G1-D path (core/launch.py): the same
+    G1DSession, the same G1DAtomicController, the same Z floor object -- so a
+    token executed through this web teleop takes the identical
+    token -> base-frame delta -> MoveIt -> FollowJointTrajectory path as the
+    autonomous pipeline. That is what makes the web UI a faithful VISUAL
+    replay of the VLM's action sequence.
+    """
+    from core.g1d.g1d_session import G1DSession, G1DSessionConfig
+    from core.g1d.safety import resolve_z_floor
+    from interpreters.g1d_atomic_controller import G1DAtomicController
+
+    rb = robot_cfg.get("robot", {}) or {}
+    side = args.side or str(rb.get("side", "left"))
+    if side not in ("left", "right"):
+        raise SystemExit(f"[web-teleop] G1-D side must be 'left' or 'right', got {side!r}")
+    namespace = args.namespace or str(rb.get("bridge_namespace", "lzh"))
+    if namespace not in ("g1d", "lzh"):
+        raise SystemExit(
+            f"[web-teleop] G1-D bridge namespace must be 'g1d' or 'lzh', got {namespace!r}"
+        )
+
+    # Z floor precedence: --no-z-floor > --z-floor-m > calibrated config value.
+    floor = resolve_z_floor(
+        robot_cfg,
+        override_m=args.z_floor_m,
+    )
+    if args.no_z_floor:
+        floor = resolve_z_floor({**robot_cfg, "enable_z_floor": False})
+    if not floor.enabled:
+        raise SystemExit(
+            "[web-teleop] G1-D: the Z safety floor is disabled. Calibrate it with "
+            "scripts/g1d/capture_z_floor.py --side <side> --capture, then set "
+            "z_floor_m in the robot config -- or pass --z-floor-m <height>."
+        )
+
+    topics = robot_cfg.get("camera_topics") or {}
+    head_topic = args.head_topic or str(
+        topics.get("head_left", "/g1d/cameras/head_left/image_raw")
+    )
+    wrist_topic = args.g1d_wrist_topic or str(
+        topics.get(f"{side}_wrist", f"/g1d/cameras/{side}_wrist/image_raw")
+    )
+
+    session = G1DSession(
+        G1DSessionConfig(
+            side=side,
+            namespace=namespace,
+            use_mock_robot=False,
+            use_mock_cameras=False,
+            head_camera_topic=head_topic,
+            head_right_camera_topic=str(
+                topics.get("head_right", "/g1d/cameras/head_right/image_raw")
+            ),
+            wrist_camera_topic=wrist_topic,
+            z_floor=floor,
+            # The web teleop is an interactive surface: it sends REAL goals.
+            dry_run=False,
+            verbose=True,
+        )
+    )
+    session.connect()
+
+    controller = G1DAtomicController.from_primitives_config(
+        session.robot,
+        primitives_cfg,
+        settle_steps=1,
+        settle_dt_s=0.0,
+        z_floor_m=float(floor.z_m) if floor.enabled else None,
+        capture_z_floor_on_sync=False,
+        verbose=True,
+    )
+    controller.sync_from_robot()
+    print(f"[web-teleop] G1-D {side} arm ready; z-floor = {controller.z_floor_m} m")
+
+    # The G1-D has no named home pose in the robot config, and a home move
+    # through the bridge is a whole trajectory -- so auto-home is OFF by
+    # default. Set --no-reset-on-stop to keep it off explicitly.
+    home_fn = None
+
+    meta = {
+        "robot": "g1d",
+        "side": side,
+        "arm": side,
+        "motion_frame": "base",
+        "namespace": namespace,
+        "head_topic": head_topic,
+        "wrist_topic": wrist_topic,
+        "z_floor_m": controller.z_floor_m,
+        "task": str(robot_cfg.get("task", "")),
+    }
+    return session, controller, home_fn, None, meta
+
+
 def main() -> int:
     args = parse_args()
 
@@ -393,14 +497,21 @@ def main() -> int:
     # the sim world (a Piper-shaped rig) use the Piper configs. --primitives/--robot-config
     # override either.
     use_franka = (not args.sim) and args.robot == "franka"
+    use_g1d = (not args.sim) and args.robot == "g1d"
     if args.primitives is None:
-        args.primitives = str(
-            ROOT / "configs" / ("primitives_franka.yaml" if use_franka else "primitives_piper.yaml")
-        )
+        if use_franka:
+            args.primitives = str(ROOT / "configs" / "primitives_franka.yaml")
+        elif use_g1d:
+            args.primitives = str(ROOT / "configs" / "primitives_g1d.yaml")
+        else:
+            args.primitives = str(ROOT / "configs" / "primitives_piper.yaml")
     if args.robot_config is None:
-        args.robot_config = str(
-            ROOT / "configs" / ("robot_franka.yaml" if use_franka else "robot_piper.yaml")
-        )
+        if use_franka:
+            args.robot_config = str(ROOT / "configs" / "robot_franka.yaml")
+        elif use_g1d:
+            args.robot_config = str(ROOT / "configs" / "robot_g1d.yaml")
+        else:
+            args.robot_config = str(ROOT / "configs" / "robot_piper.yaml")
 
     primitives_cfg = load_yaml(args.primitives)
     robot_cfg = load_yaml(args.robot_config) if Path(args.robot_config).is_file() else {}
@@ -413,6 +524,8 @@ def main() -> int:
         build = build_sim_rig
     elif args.robot == "franka":
         build = build_franka_rig
+    elif args.robot == "g1d":
+        build = build_g1d_rig
     else:
         build = build_piper_rig
     session, controller, home_fn, scene, meta = build(args, primitives_cfg, robot_cfg)

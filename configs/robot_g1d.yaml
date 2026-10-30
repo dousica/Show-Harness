@@ -1,0 +1,131 @@
+# G1-D (Unitree G1-D dual-arm humanoid) robot configuration.
+#
+# Two independent layers live here:
+#
+#   1. The VISION API block -- the camera -> VLM -> JSON path, which is
+#      perception only and never sends a robot command.
+#   2. The MOTION blocks (primitives_config / hardware) -- the G1-D Cartesian
+#      adapter and its commissioning boundaries. See docs/g1d.md for the
+#      verified software surface and the remaining hardware checks.
+#
+# The VLM credentials live in configs/secrets.env (gitignored), never in this
+# file. The gateway is the deployment one; the harness's own backends work too.
+#
+# ----- Task -----------------------------------------------------------------
+task: "Locate the steel bearing on the workbench and report its bounding box"
+
+# ----- Vision API ----------------------------------------------------------
+# transport: openai_compat | custom
+#   openai_compat -> the standard vlm / vlm_backends blocks below (any
+#                     OpenAI-compatible /chat/completions endpoint).
+#   custom         -> the vision_api block's own request_template, for a
+#                     gateway that does not speak the OpenAI dialect.
+vision_api:
+  transport: openai_compat
+  # A detection below this confidence is reported as "not found" rather than
+  # as a low-confidence hit.
+  min_confidence: 0.5
+  # Downscale frames so the longest side is at most this many pixels (0 = keep
+  # the native resolution). Set this if the gateway rejects large bodies.
+  max_image_side: 0
+  max_tokens: 512
+
+# ----- VLM ------------------------------------------------------------------
+# The default backend is the OpenAI-compatible relay below. It speaks the
+# standard /chat/completions dialect, which is what core/vlm/vlm_client.py uses.
+#
+# NOTE on the relay: it sits behind Cloudflare, which rejects DIRECT requests
+# from this machine with HTTP 403. The proxy settings live in
+# configs/secrets.local.env (gitignored) so that the harness's requests
+# library picks them up:
+#
+#     HTTPS_PROXY="http://127.0.0.1:7890"
+#     HTTP_PROXY="http://127.0.0.1:7890"
+#
+# The relay's /v1/responses endpoint is NOT available (it hangs/errors); only
+# /v1/chat/completions works. That is exactly the dialect the harness uses.
+# Public default. The lab relay is machine-specific: keep its vlm_backends
+# entry in configs/site/g1d.yaml and select it with --vlm-backend <name>.
+vlm_backend: gemini
+
+vlm:
+  base_url: http://localhost:8000/v1
+
+vlm_backends:
+  gateway:
+    provider: openai
+    base_url: https://api.openai.com/v1
+    model: gpt-5.5
+    api_key_env: G1D_VLM_API_KEY
+    max_tokens: 512
+    temperature: 0.0
+    max_retries: 5
+  gemini:
+    provider: gemini
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    model: gemini-3.1-pro
+    api_key_env: GEMINI_API_KEY
+    max_tokens: 512
+    temperature: 0.0
+    max_retries: 5
+  local:
+    provider: vllm
+    base_url: http://localhost:8000/v1
+    model: gemma-3-27b-it
+    api_key_env: VLLM_API_KEY
+    max_tokens: 512
+    temperature: 0.0
+
+# ----- Hardware target --------------------------------------------------------
+# ROS transport, Gumi collection, perception, and calibration loading are
+# implemented. Direction signs, camera accuracy, gripper calibration, and
+# end-to-end grasping still require commissioning on the target rig.
+hardware: g1d
+primitives_config: configs/primitives_g1d.yaml
+
+defaults:
+  - site/g1d.yaml               #   your rig's identity (required)
+  - {path: backends/internal.yaml, optional: true}
+
+# ----- Camera calibration policy ----------------------------------------------
+# Rig-specific calibration paths and camera/base frames live in the required
+# configs/site/g1d.yaml layer. The site layer is merged UNDER this file, so keep
+# these generic depth-processing limits here and do not duplicate site values.
+calibration:
+  # Metric depth accepted from the stereo matcher (meters).
+  min_depth_m: 0.15
+  max_depth_m: 2.0
+  # Left/right image pairs older than max_stereo_skew_s apart are rejected.
+  max_stereo_skew_s: 0.02
+
+# ----- Safety: the Z floor -----------------------------------------------------
+# The minimum end-effector height (meters, in `torso_link`) the arm may be driven
+# to. The commanded target is CLAMPED to this height, and every planned
+# trajectory is checked sample-by-sample against it, so a path that dips through
+# the table is rejected before it reaches the SDK bridge.
+#
+# `z_floor_m: 0.0` is a MEASURED value, not a placeholder: on the G1-D the
+# tabletop is level with the `torso_link` Z origin, so the measured table
+# height is ~0.0 m. The `z_floor_calibrated: true` marker below is what tells
+# the harness this 0.0 is a real calibration (an UNMARKED 0.0 is still
+# refused as a placeholder). To re-calibrate on a different table (read-only,
+# the arm never moves):
+#
+#     python3 scripts/g1d/capture_z_floor.py --side left --capture
+#
+# then paste the measured height here. A live run refuses to start without an
+# enabled, calibrated floor -- see core/g1d/safety.py.
+enable_z_floor: true
+z_floor_m: 0.0
+z_floor_calibrated: true
+# Extra clearance for the HAND (the Dex1 fingers extend behind/below the
+# fingertip midpoint, so a floor exactly at the TCP height still lets the
+# fingers touch the table). Added ON TOP of z_floor_m.
+z_floor_margin_m: 0.003
+
+# ----- Camera topics (used by scripts/g1d/vision_detect.py) ------------------
+camera_topics:
+  head_left: /g1d/cameras/head_left/image_raw
+  head_right: /g1d/cameras/head_right/image_raw
+  left_wrist: /g1d/cameras/left_wrist/image_raw
+  right_wrist: /g1d/cameras/right_wrist/image_raw

@@ -309,7 +309,7 @@ def main() -> int:
         # pose and the controller setpoint is captured there.
         if hardware == "piper":
             move_to_begin_on_init(cfg, session)
-        else:
+        elif hardware != "g1d":
             move_to_begin_franka(cfg, session)
         controller.sync_from_robot()
         if controller.z_floor_m is not None:

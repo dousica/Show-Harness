@@ -188,6 +188,11 @@ class TeleopBackend:
         meta = getattr(self.recorder, "session_meta", {}) or {}
         st["step_m"] = meta.get("step_m")
         st["yaw_step_rad"] = meta.get("yaw_step_rad")
+        # Which rig this is ("g1d" / "piper" / "franka" / "piper_sim") and which
+        # arm it drives. An operator (or a replay script) needs to know that
+        # before it sends a token.
+        st["robot"] = meta.get("robot")
+        st["arm"] = meta.get("arm")
         if self.scene is not None:
             st["sim_scene"] = self._scene_state()
         return st

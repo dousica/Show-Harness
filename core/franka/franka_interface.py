@@ -5,7 +5,12 @@ that only includes the FrankaInterface class for direct robot control.
 """
 
 import numpy as np
-import zerorpc
+
+# The ZeroRPC client is imported LAZILY, inside FrankaInterface.__init__. It is only
+# needed to talk to a real Franka NUC, and a hard module-level import would make
+# every other embodiment (Piper, G1-D) and the offline test suite depend on a
+# package they never use -- and would break the harness on a machine with no
+# Franka stack installed at all.
 
 
 class FrankaInterface:
@@ -19,6 +24,15 @@ class FrankaInterface:
             ip: IP address of NUC running Polymetis server
             port: Port of ZeroRPC server
         """
+        try:
+            import zerorpc
+        except ImportError as exc:  # pragma: no cover - environment guard
+            raise ImportError(
+                "zerorpc is required to talk to a Franka NUC. Install it with "
+                "`pip install -r requirements/requirements-real.txt` (or "
+                "`bash scripts/setup.sh base --real`). The G1-D and Piper rigs do "
+                "NOT need it."
+            ) from exc
         self.server = zerorpc.Client(heartbeat=20)
         self.server.connect(f"tcp://{ip}:{port}")
 
