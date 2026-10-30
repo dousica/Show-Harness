@@ -134,6 +134,8 @@ bash scripts/setup.sh base
 
 完整流程见 [docs/franka.md](docs/franka.md) 与 [docs/piper.md](docs/piper.md)；仿真见 [docs/simulators.md](docs/simulators.md)
 
+Unitree G1-D 的 Harness 接入、ROS 2 transport、标定和调试说明见 [docs/g1d.md](docs/g1d.md)
+
 ### 4. 仓库结构
 
 | 路径 | 内容 |
@@ -147,7 +149,7 @@ bash scripts/setup.sh base
 | `scripts/` | 平台启动、标定采集、模型部署、数据采集，以及各仿真器的批量评测（`scripts/<sim>/eval_batch.sh`） |
 | `train/` | 微调全流程：数据转换、数据集注册、LoRA 配置（[train/README.md](train/README.md)） |
 | `models/` | 对话模板、已下载的适配器与 HuggingFace 缓存（[models/README.md](models/README.md)） |
-| `docs/` | 各平台的操作手册与微调模式说明 |
+| `docs/` | 各平台操作手册（含 [G1-D](docs/g1d.md)）与微调模式说明 |
 
 ---
 

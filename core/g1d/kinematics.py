@@ -7,7 +7,8 @@ which exposes joint feedback but no Cartesian pose feedback -- so the pose has t
 come from FK on the measured joints.
 
 The chain constants below are transcribed from
-``g1d_description/urdf/g1_d_ros2.urdf`` (the official G1-D URDF): the 7 arm
+``lzh_description/urdf/g1_d_ros2.urdf`` (the G1-D URDF vendored in the LZH
+workspace): the 7 arm
 joints per side, each with its origin (xyz, rpy) and axis, in the URDF's own
 order. The Dex1 gripper mount and finger chains are included so the tool point
 (the midpoint between the two fingertip links) can be resolved.

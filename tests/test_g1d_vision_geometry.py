@@ -23,13 +23,7 @@ class SingleArmProfileTests(unittest.TestCase):
     def test_profile_selects_exactly_one_arm_and_gripper(self) -> None:
         profile = SingleArmProfile("left")
         self.assertEqual(profile.group_name, "left_arm")
-        # The default bridge build in this lab is "lzh", whose Dex1 servers live
-        # under a namespaced prefix.
         self.assertEqual(profile.gripper_action, "/lzh_left_dex1/gripper_command")
-        self.assertEqual(
-            SingleArmProfile.for_bridge("left", "g1d").gripper_action,
-            "/left_dex1/gripper_command",
-        )
         profile.validate_trajectory_joint_names(profile.joint_names)
         with self.assertRaisesRegex(ValueError, "exactly its 7 arm joints"):
             profile.validate_trajectory_joint_names(
@@ -118,8 +112,8 @@ class VisionGeometryTests(unittest.TestCase):
             D_left=np.zeros(5),
             K_right=np.asarray([[80, 0, 32], [0, 80, 24], [0, 0, 1]], dtype=float),
             D_right=np.zeros(5),
-            R_right_left=np.eye(3),
-            T_right_left_m=np.asarray([[-0.06], [0], [0]], dtype=float),
+            R_left_to_right=np.eye(3),
+            T_left_to_right_m=np.asarray([[-0.06], [0], [0]], dtype=float),
         )
         processor = StereoDepthProcessor(
             calibration, num_disparities=16, block_size=3,

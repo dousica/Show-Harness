@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import contextlib
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.check_setup import main
 
@@ -22,7 +24,8 @@ z_floors: {default: 0.14}
 vlm_backend: local
 vlm: {base_url: http://localhost:8000/v1}
 vlm_backends:
-  local: {provider: vllm, base_url: http://localhost:8000/v1, model: m}
+  local: {provider: vllm, base_url: http://localhost:8000/v1, model: m,
+          api_key_env: PREFLIGHT_TEST_API_KEY}
 """
 
 
@@ -39,19 +42,25 @@ primitives_config: __PRIMS__
 vlm_backend: local
 vlm: {base_url: http://localhost:8000/v1}
 vlm_backends:
-  local: {provider: vllm, base_url: http://localhost:8000/v1, model: m}
+  local: {provider: vllm, base_url: http://localhost:8000/v1, model: m,
+          api_key_env: PREFLIGHT_TEST_API_KEY}
 """
 
 PRIMS = str(Path(__file__).resolve().parents[1] / "configs" / "primitives_g1d.yaml")
 
 
 class CheckSetupTests(unittest.TestCase):
-    def _run(self, cfg_text: str) -> tuple[int, str]:
+    def _run(self, cfg_text: str, *, domain: str = "42", overlay: str = "") -> tuple[int, str]:
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "robot.yaml"
             p.write_text(cfg_text)
             out = io.StringIO()
-            with contextlib.redirect_stdout(out):
+            env = {
+                "ROS_DOMAIN_ID": domain,
+                "AMENT_PREFIX_PATH": overlay or "/home/yushu/g1d_ros2_lzh/install/lzh_bringup",
+                "LZH_ROS_WS": "/home/yushu/g1d_ros2_lzh",
+            }
+            with patch.dict(os.environ, env), contextlib.redirect_stdout(out):
                 code = main(["--robot-config", str(p), "--no-vlm", "--no-hardware"])
         return code, out.getvalue()
 
@@ -84,6 +93,29 @@ class CheckSetupTests(unittest.TestCase):
         )
         self.assertEqual(code, 1, out)
         self.assertIn("PLACEHOLDER", out)
+
+    def test_g1d_preflight_rejects_missing_domain(self) -> None:
+        code, out = self._run(G1D.replace("__PRIMS__", PRIMS), domain="")
+        self.assertEqual(code, 1, out)
+        self.assertIn("ROS_DOMAIN_ID must be 42", out)
+
+    def test_g1d_preflight_rejects_other_domain(self) -> None:
+        code, out = self._run(G1D.replace("__PRIMS__", PRIMS), domain="0")
+        self.assertEqual(code, 1, out)
+        self.assertIn("got '0'", out)
+
+    def test_g1d_preflight_rejects_senior_overlay(self) -> None:
+        code, out = self._run(
+            G1D.replace("__PRIMS__", PRIMS),
+            overlay="/home/yushu/g1d_ros2_ws/install/g1d_bringup",
+        )
+        self.assertEqual(code, 1, out)
+        self.assertIn("forbidden overlay path", out)
+
+    def test_no_vlm_does_not_require_an_api_key(self) -> None:
+        code, out = self._run(G1D.replace("__PRIMS__", PRIMS))
+        self.assertEqual(code, 0, out)
+        self.assertIn("not needed for this check", out)
 
 
 if __name__ == "__main__":

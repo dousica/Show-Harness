@@ -34,7 +34,7 @@ from core.g1d.kinematics import (
     wrist_to_tcp_pose7,
 )
 
-URDF_PATH = Path("/home/yushu/g1d_ros2_ws/src/g1d_description/urdf/g1_d_ros2.urdf")
+URDF_PATH = Path.home() / "g1d_ros2_lzh/src/lzh_description/urdf/g1_d_ros2.urdf"
 
 
 def _parse_urdf_chain(side: str) -> list[tuple]:

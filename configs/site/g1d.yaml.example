@@ -1,0 +1,18 @@
+# Rig identity and measured calibration paths: copy this file to
+# configs/site/g1d.yaml and adjust it for the target machine. The G1-D config
+# requires this file. This example contains paths and frame names only; it
+# does not contain calibration measurements or claim that they are validated.
+#
+# Paths may use ~ (expanded to the current user's home). This site file is
+# merged under configs/robot_g1d.yaml; keep rig-specific values here and generic
+# processing limits in robot_g1d.yaml.
+robot:
+  side: left
+  bridge_namespace: lzh
+  open_width_m: 0.09
+
+calibration:
+  stereo_yaml: ~/.ros/g1d_camera_calibration/head_stereo.yaml
+  handeye_yaml: ~/g1d_vision_data/handeye
+  camera_frame: head_left_camera_optical_frame
+  base_frame: torso_link

@@ -27,10 +27,9 @@ The floor is a height in the ``torso_link`` frame (the SRDF chain base of
 ``torso_link``-based end-effector poses the transport reports.
 
 The floor protects against the table. It is NOT a full collision model: the
-arm can still collide with a shelf, a rack or the robot's own body, because
-MoveIt's planning scene does not contain those obstacles (see
-``readme_g1d.md`` -> "尚未接通的部分"). The floor is the minimum bar, not the
-whole safety story.
+arm can still collide with a shelf, a rack or the robot's own body if those
+obstacles are absent from MoveIt's planning scene. The floor is the minimum
+bar, not the whole safety story; see ``docs/g1d.md``.
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
-"""Read fresh RGB frames from the G1-D camera bridge.
+"""Read fresh RGB frames from the LZH G1-D camera bridge.
 
-The bridge (``g1d_camera_bridge``) publishes ``bgr8`` images on
+The bridge (``lzh_camera_bridge``) publishes ``bgr8`` images on
 ``/g1d/cameras/<name>/image_raw``. This module turns that topic into RGB frames
 the vision API can consume, with two properties the raw topic does not give you:
 
@@ -13,8 +13,8 @@ the vision API can consume, with two properties the raw topic does not give you:
   silent detection on a frozen picture.
 
 The ROS import is LAZY: importing this module on a machine without ROS 2 (the
-offline test suite, a laptop) works fine, and only actually subscribing needs
-``source /opt/ros/humble/setup.bash``.
+offline test suite, a laptop) works fine. Live subscription requires Domain 42
+and the ``/home/yushu/g1d_ros2_lzh/setup_env.sh`` workspace overlay.
 """
 
 from __future__ import annotations
@@ -89,6 +89,9 @@ class G1DCameraSource:
     def start(self) -> "G1DCameraSource":
         if self._node is not None:
             return self
+        from core.g1d.ros_environment import require_g1d_ros_environment
+
+        require_g1d_ros_environment()
         try:
             import rclpy
             from rclpy.node import Node
@@ -97,7 +100,8 @@ class G1DCameraSource:
         except ImportError as exc:  # pragma: no cover - environment guard
             raise ImportError(
                 "rclpy / sensor_msgs are not importable. Source ROS 2 first: "
-                "`source /opt/ros/humble/setup.bash`."
+            "`export ROS_DOMAIN_ID=42` and "
+            "`source /home/yushu/g1d_ros2_lzh/setup_env.sh`."
             ) from exc
         if not rclpy.ok():
             rclpy.init(args=None)
@@ -152,7 +156,7 @@ class G1DCameraSource:
             if time.monotonic() >= deadline:
                 raise RuntimeError(
                     f"no fresh RGB frame on {self.topic} within {timeout_s:g}s; "
-                    "check that g1d_camera_bridge is running and publishing"
+                    "check that lzh_camera_bridge is running and publishing"
                 )
             self._spin(0.05)
 

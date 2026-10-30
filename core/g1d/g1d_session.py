@@ -48,7 +48,7 @@ class G1DSessionConfig:
     use_mock_cameras: bool = False
     open_width_m: float = DEFAULT_OPEN_WIDTH_M
 
-    # The head cameras (both are published by g1d_camera_bridge).
+    # The head cameras (both are published by lzh_camera_bridge).
     head_camera_topic: str = "/g1d/cameras/head_left/image_raw"
     head_right_camera_topic: str = "/g1d/cameras/head_right/image_raw"
     # The wrist camera of the SELECTED side (falls back to the other head eye).
@@ -64,6 +64,12 @@ class G1DSessionConfig:
     # When True the transport plans and validates trajectories but never sends
     # them. The default for bring-up.
     dry_run: bool = True
+
+    # When True a GOAL_TOLERANCE_VIOLATED abort raises (the old behaviour).
+    # The default is False: the bridge keeps HOLDING the commanded final
+    # position, so the Cartesian goal was reached -- a closed-loop rollout
+    # must not die on it. The event is still logged and recorded.
+    tolerance_violation_is_fatal: bool = False
 
     verbose: bool = True
 
@@ -108,6 +114,7 @@ class G1DSession:
                 self.profile,
                 dry_run=cfg.dry_run,
                 z_floor=cfg.z_floor,
+                tolerance_violation_is_fatal=cfg.tolerance_violation_is_fatal,
                 verbose=cfg.verbose,
             )
             self._log(

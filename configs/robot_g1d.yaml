@@ -5,8 +5,8 @@
 #   1. The VISION API block -- the camera -> VLM -> JSON path, which is
 #      perception only and never sends a robot command.
 #   2. The MOTION blocks (primitives_config / hardware) -- the G1-D Cartesian
-#      adapter, still under construction. See readme_g1d.md for what is and is
-#      not verified on hardware.
+#      adapter and its commissioning boundaries. See docs/g1d.md for the
+#      verified software surface and the remaining hardware checks.
 #
 # The VLM credentials live in configs/secrets.env (gitignored), never in this
 # file. The gateway is the deployment one; the harness's own backends work too.
@@ -44,7 +44,7 @@ vision_api:
 #
 # The relay's /v1/responses endpoint is NOT available (it hangs/errors); only
 # /v1/chat/completions works. That is exactly the dialect the harness uses.
-vlm_backend: inroi   # see vlm_backends below
+vlm_backend: inroi
 
 vlm:
   base_url: http://localhost:8000/v1
@@ -83,9 +83,26 @@ vlm_backends:
     temperature: 0.0
 
 # ----- Hardware target --------------------------------------------------------
-# !! The G1-D motion stack is NOT wired up yet. Do not enable it. !!
+# ROS transport, Gumi collection, perception, and calibration loading are
+# implemented. Direction signs, camera accuracy, gripper calibration, and
+# end-to-end grasping still require commissioning on the target rig.
 hardware: g1d
 primitives_config: configs/primitives_g1d.yaml
+
+defaults:
+  - site/g1d.yaml               #   your rig's identity (required)
+  - {path: backends/internal.yaml, optional: true}
+
+# ----- Camera calibration policy ----------------------------------------------
+# Rig-specific calibration paths and camera/base frames live in the required
+# configs/site/g1d.yaml layer. The site layer is merged UNDER this file, so keep
+# these generic depth-processing limits here and do not duplicate site values.
+calibration:
+  # Metric depth accepted from the stereo matcher (meters).
+  min_depth_m: 0.15
+  max_depth_m: 2.0
+  # Left/right image pairs older than max_stereo_skew_s apart are rejected.
+  max_stereo_skew_s: 0.02
 
 # ----- Safety: the Z floor -----------------------------------------------------
 # The minimum end-effector height (meters, in `torso_link`) the arm may be driven

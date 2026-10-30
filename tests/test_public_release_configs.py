@@ -55,6 +55,9 @@ REAL_CONFIGS = (
     "robot_franka_ft.yaml",
     "robot_piper.yaml",
     "robot_piper_ft.yaml",
+    # The G1-D needs a site layer, copied from site/g1d.yaml.example by the
+    # public-tree fixture below.
+    "robot_g1d.yaml",
 )
 SIM_CONFIGS = (
     "robot_robolab.yaml",

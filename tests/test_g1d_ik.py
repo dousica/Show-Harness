@@ -38,14 +38,14 @@ class TestSingleArmProfile(unittest.TestCase):
         self.assertTrue(all(name.startswith("left_") for name in left.joint_names))
         self.assertTrue(all(name.startswith("right_") for name in right.joint_names))
 
-    def test_the_namespace_selects_the_gripper_endpoint(self) -> None:
-        """The two bridge builds differ only in the Dex1 namespace."""
-        g1d = SingleArmProfile("left", namespace="g1d")
+    def test_the_lzh_namespace_selects_the_gripper_endpoint(self) -> None:
         lzh = SingleArmProfile("left", namespace="lzh")
-        self.assertEqual(g1d.gripper_action, "/left_dex1/gripper_command")
         self.assertEqual(lzh.gripper_action, "/lzh_left_dex1/gripper_command")
-        # The ARM action (the one that moves the robot) is identical in both.
-        self.assertEqual(g1d.trajectory_action, lzh.trajectory_action)
+        self.assertEqual(set(BRIDGE_NAMESPACES), {"lzh"})
+
+    def test_senior_bridge_namespace_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "namespace must be one of"):
+            SingleArmProfile("left", namespace="g1d")
 
     def test_the_default_namespace_is_the_running_build(self) -> None:
         self.assertEqual(DEFAULT_BRIDGE_NAMESPACE, "lzh")

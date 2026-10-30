@@ -93,7 +93,14 @@ def depth_from_disparity(
 
 @dataclass(frozen=True)
 class StereoCalibration:
-    """Measured stereo calibration for a rectified left/right camera pair."""
+    """Measured stereo calibration for a rectified left/right camera pair.
+
+    The extrinsic follows the convention the stereo tools write and OpenCV
+    expects: ``X_right = R_left_to_right @ X_left + T_left_to_right_m``,
+    with ``T_left_to_right_m`` in meters. This is EXACTLY what
+    :func:`cv2.stereoRectify` wants, so the stored values pass straight
+    through -- do not invert them.
+    """
 
     image_width: int
     image_height: int
@@ -101,8 +108,8 @@ class StereoCalibration:
     D_left: np.ndarray
     K_right: np.ndarray
     D_right: np.ndarray
-    R_right_left: np.ndarray
-    T_right_left_m: np.ndarray
+    R_left_to_right: np.ndarray
+    T_left_to_right_m: np.ndarray
 
     def __post_init__(self) -> None:
         if self.image_width <= 0 or self.image_height <= 0:
@@ -110,8 +117,8 @@ class StereoCalibration:
         expected = {
             "K_left": (3, 3),
             "K_right": (3, 3),
-            "R_right_left": (3, 3),
-            "T_right_left_m": (3, 1),
+            "R_left_to_right": (3, 3),
+            "T_left_to_right_m": (3, 1),
         }
         for name, shape in expected.items():
             matrix = np.asarray(getattr(self, name), dtype=np.float64)
@@ -130,14 +137,14 @@ class StereoCalibration:
             matrix = getattr(self, name)
             if matrix[0, 0] <= 0 or matrix[1, 1] <= 0 or not np.isclose(matrix[2, 2], 1.0):
                 raise ValueError(f"{name} must have positive focal lengths and K[2,2] = 1")
-        rotation = self.R_right_left
+        rotation = self.R_left_to_right
         if (not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-3)
                 or not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-3)):
-            raise ValueError("R_right_left must be a proper rotation matrix")
-        baseline = float(np.linalg.norm(self.T_right_left_m))
+            raise ValueError("R_left_to_right must be a proper rotation matrix")
+        baseline = float(np.linalg.norm(self.T_left_to_right_m))
         if not 0.01 <= baseline <= 1.0:
             raise ValueError("measured stereo baseline must be between 0.01 and 1.0 meters")
-        if abs(float(self.T_right_left_m[0, 0])) < 0.9 * baseline:
+        if abs(float(self.T_left_to_right_m[0, 0])) < 0.9 * baseline:
             raise ValueError("StereoDepthProcessor currently requires a horizontal camera baseline")
 
     @classmethod
@@ -157,8 +164,8 @@ class StereoCalibration:
                 D_left=np.asarray(data["D_left"], dtype=np.float64),
                 K_right=np.asarray(data["K_right"], dtype=np.float64),
                 D_right=np.asarray(data["D_right"], dtype=np.float64),
-                R_right_left=np.asarray(data["R_right_left"], dtype=np.float64),
-                T_right_left_m=np.asarray(data["T_right_left_m"], dtype=np.float64).reshape(3, 1),
+                R_left_to_right=np.asarray(data["R_left_to_right"], dtype=np.float64),
+                T_left_to_right_m=np.asarray(data["T_left_to_right_m"], dtype=np.float64).reshape(3, 1),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"invalid stereo calibration YAML: {exc}") from exc
@@ -201,8 +208,8 @@ class StereoDepthProcessor:
             calibration.K_right,
             calibration.D_right,
             size,
-            calibration.R_right_left,
-            calibration.T_right_left_m,
+            calibration.R_left_to_right,
+            calibration.T_left_to_right_m,
             flags=cv2.CALIB_ZERO_DISPARITY,
             alpha=0,
         )

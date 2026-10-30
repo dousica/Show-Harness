@@ -4,35 +4,23 @@ The profile is the single place that knows WHICH arm is selected and which ROS 2
 endpoints belong to it. Everything downstream (the transport, the scripts, the
 controllers) reads the endpoints from here, so a side can never be mixed up.
 
-Endpoint namespaces
--------------------
-Two G1-D bridge builds are in circulation in this lab, and they differ ONLY in the
-namespace prefix of the Dex1 gripper endpoints:
-
-=====================  ==============================  ==============================
-build                  arm trajectory action           gripper action
-=====================  ==============================  ==============================
-``g1d_sdk_bridge``     ``/left_arm_controller/...``    ``/left_dex1/gripper_command``
-``lzh_sdk_bridge``     ``/left_arm_controller/...``    ``/lzh_left_dex1/gripper_command``
-=====================  ==============================  ==============================
-
-Both publish ``/joint_states``; the Dex1 raw motor feedback is ``/dex1/motor_states``
-or ``/lzh_dex1/motor_states`` respectively.
-
-The arm trajectory actions are IDENTICAL in both builds, and they are the ones that
-carry the motion -- so a wrong namespace cannot move the wrong arm, only break the
-gripper. :data:`BRIDGE_NAMESPACES` names both builds and
-:func:`SingleArmProfile.for_bridge` selects one; the default is ``"lzh"``, which is
-the build currently running in this lab (``ROS_DOMAIN_ID=42``).
+Endpoint namespace
+------------------
+The G1-D integration uses only this repository's ``lzh_sdk_bridge``. It publishes
+``/joint_states`` and ``/lzh_dex1/motor_states``, with arm actions at
+``/<side>_arm_controller/follow_joint_trajectory`` and gripper actions at
+``/lzh_<side>_dex1/gripper_command``. The G1-D ROS runtime is restricted to
+``ROS_DOMAIN_ID=42``.
 
 The side whitelist
 ------------------
 The profile is the CLIENT-side half of the one-arm policy: it only ever names the
 selected side's joints, group and Actions, and
 :meth:`SingleArmProfile.validate_trajectory_joint_names` rejects a trajectory that
-contains the other side's joints or both arms. The SERVER side of the policy is the
-bridge's own gate (``enable_both_arms_real_execution``) plus the still-missing
-side-specific real-execution flags -- see ``readme_g1d.md``.
+contains the other side's joints or both arms. This is only the CLIENT-side policy:
+the bridge still exposes both single-arm Actions when real execution is enabled.
+Its ``enable_both_arms_real_execution`` gate protects the coordinated 14-joint
+Action, not the opposite single-arm Action. See ``docs/g1d.md``.
 """
 from __future__ import annotations
 
@@ -41,14 +29,8 @@ from typing import Literal
 
 ArmSide = Literal["left", "right"]
 
-#: The two G1-D bridge builds present in this lab, keyed by name.
+#: The only supported G1-D bridge profile.
 BRIDGE_NAMESPACES: dict[str, dict[str, str]] = {
-    # The upstream package under ~/g1d_ros2_ws.
-    "g1d": {
-        "gripper_prefix": "",
-        "dex1_motor_states": "/dex1/motor_states",
-    },
-    # This lab's own build under ~/g1d_ros2_lzh (the one currently running).
     "lzh": {
         "gripper_prefix": "lzh_",
         "dex1_motor_states": "/lzh_dex1/motor_states",
@@ -107,8 +89,7 @@ class SingleArmProfile:
     def trajectory_action(self) -> str:
         """The FollowJointTrajectory Action for this arm.
 
-        IDENTICAL in both bridge builds -- the arm trajectory endpoint is the one
-        that carries the motion, so it is deliberately NOT namespaced.
+        The arm trajectory endpoint is deliberately not namespaced.
         """
         return f"/{self.side}_arm_controller/follow_joint_trajectory"
 

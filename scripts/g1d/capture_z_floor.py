@@ -50,6 +50,9 @@ def _capture_height(side: str) -> float:
         def _cb(self, msg: JointState) -> None:
             self.values = dict(zip(msg.name, msg.position))
 
+    from core.g1d.ros_environment import require_g1d_ros_environment
+
+    require_g1d_ros_environment()
     rclpy.init(args=None)
     node = _JointReader()
     wanted = arm_joint_names(side)

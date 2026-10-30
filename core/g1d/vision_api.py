@@ -28,7 +28,7 @@ The model answers with ONE object::
 ``bbox_norm`` is ``[x_min, y_min, x_max, y_max]`` normalised to ``[0, 1]`` on the
 FULL input image. The answer carries NO joint angles, NO free-form distances and
 NO executable ROS command -- perception and motion stay decoupled, exactly like
-the rest of the G1-D contract (see ``readme_g1d.md``).
+the rest of the G1-D contract (see ``docs/g1d.md``).
 
 "Not visible" is expressed in-band, not as an error: an empty ``label`` (or a
 zero confidence) yields a :class:`VisionResult` with ``found=False``. Only a

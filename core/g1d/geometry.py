@@ -27,7 +27,7 @@ import numpy as np
 #: are planned against -- it is the SRDF chain base for ``left_arm``/``right_arm``.
 TORSO_FRAME = "torso_link"
 
-#: The MoveIt planning groups in ``g1d_moveit_config/config/G1_D.srdf``.
+#: The MoveIt planning groups in ``lzh_moveit_config/config/G1_D.srdf``.
 LEFT_GROUP = "left_arm"
 RIGHT_GROUP = "right_arm"
 

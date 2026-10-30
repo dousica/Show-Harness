@@ -320,6 +320,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(f"{name} exceeds --max-translation-m")
 
     profile = SingleArmProfile(args.side)
+    from core.g1d.ros_environment import require_g1d_ros_environment
+
+    require_g1d_ros_environment()
     rclpy.init(args=None)
     node = PoseGoalNode(profile, args.base_frame, args.tip_link)
     try:

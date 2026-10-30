@@ -87,6 +87,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("已取消；没有发送夹爪目标。")
         return 0
 
+    from core.g1d.ros_environment import require_g1d_ros_environment
+
+    require_g1d_ros_environment()
     rclpy.init(args=None)
     node = GripperGoalNode(profile)
     try:

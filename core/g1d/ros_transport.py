@@ -73,6 +73,11 @@ class G1DTransportError(RuntimeError):
     """Raised when the ROS 2 stack cannot serve the requested operation."""
 
 
+#: control_msgs FollowJointTrajectory: the goal was aborted because the measured
+#: joints did not reach the commanded final point inside the tolerance window.
+ERR_GOAL_TOLERANCE_VIOLATED = -5
+
+
 def _require_ros():
     """Import rclpy + the message packages, with an actionable error if missing."""
     try:
@@ -99,8 +104,8 @@ def _require_ros():
     except ImportError as exc:  # pragma: no cover - environment guard
         raise ImportError(
             "rclpy / moveit_msgs / control_msgs are not importable. Run inside a "
-            "shell with ROS 2 Humble sourced: `source /opt/ros/humble/setup.bash` "
-            "and `source /home/yushu/g1d_ros2_lzh/setup_env.sh`."
+            "shell with ROS 2 Humble sourced: `export ROS_DOMAIN_ID=42` and "
+            "`source /home/yushu/g1d_ros2_lzh/setup_env.sh`."
         ) from exc
     return {
         "rclpy": rclpy,
@@ -137,6 +142,12 @@ def rclpy_ok() -> bool:
         return False
 
 
+def _ensure_rclpy_initialized(ros: dict[str, Any]) -> None:
+    """Initialize the shared ROS context before any transport node is created."""
+    if not ros["rclpy"].ok():
+        ros["rclpy"].init(args=None)
+
+
 class G1DRosTransport:
     """A ROS 2 client for ONE G1-D arm and its matching Dex1 gripper.
 
@@ -160,6 +171,7 @@ class G1DRosTransport:
         velocity_scaling: float = 0.1,
         dry_run: bool = True,
         z_floor: Optional[ZFloor] = None,
+        tolerance_violation_is_fatal: bool = False,
         verbose: bool = True,
     ) -> None:
         """
@@ -188,8 +200,18 @@ class G1DRosTransport:
                 is checked against it BEFORE it can be sent, and a Cartesian
                 target below the floor is clamped. ``None`` means NO floor --
                 only acceptable in a dry-run; a live run must pass one.
+            tolerance_violation_is_fatal: When True, a
+                ``GOAL_TOLERANCE_VIOLATED`` abort raises, exactly as before.
+                The default is False: the bridge keeps holding the commanded
+                final position, so the Cartesian goal WAS reached and a
+                closed-loop rollout must not die on it. The event is still
+                logged (with the measured Cartesian error) and recorded in
+                ``last_tolerance_violation``.
             verbose: Print progress lines.
         """
+        from core.g1d.ros_environment import require_g1d_ros_environment
+
+        require_g1d_ros_environment()
         self.profile = profile
         self.node_name = str(node_name)
         self.motion_path = str(motion_path).strip().lower()
@@ -205,6 +227,9 @@ class G1DRosTransport:
         self.dry_run = bool(dry_run)
         self.verbose = bool(verbose)
         self.z_floor = z_floor
+        self.tolerance_violation_is_fatal = bool(tolerance_violation_is_fatal)
+        #: The last GOAL_TOLERANCE_VIOLATED event (commanded vs measured joints).
+        self.last_tolerance_violation: Optional[dict[str, Any]] = None
         if not self.dry_run and (z_floor is None or not z_floor.enabled):
             raise ValueError(
                 "a live G1-D run needs an enabled z-floor: the arm's commanded height "
@@ -243,6 +268,7 @@ class G1DRosTransport:
         ros = self._ros
         if self._node is not None:
             return self
+        _ensure_rclpy_initialized(ros)
         self._node = ros["Node"](node_name=self.node_name)
         self._joint_sub = self._node.create_subscription(
             ros["JointState"],
@@ -279,6 +305,19 @@ class G1DRosTransport:
             target=self._spin_loop, name="g1d-transport-spin", daemon=True
         )
         self._spin_thread.start()
+        # The first subscription callback is asynchronous. Wait for one valid
+        # joint-state sample before callers read the measured pose during
+        # session startup; otherwise a healthy bridge can fail nondeterministically
+        # simply because the callback has not run yet.
+        deadline = time.monotonic() + 5.0
+        while self._joint_state is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if self._joint_state is None:
+            raise G1DTransportError(
+                f"no {self.profile.joint_states_topic} received within 5s after "
+                "connecting; verify start.bash is still running and the SDK bridge "
+                "is publishing in ROS_DOMAIN_ID=42"
+            )
         self._connected = True
         if self.verbose:
             print(
@@ -515,7 +554,7 @@ class G1DRosTransport:
         if not self._planner.wait_for_service(timeout_sec=5.0):
             raise G1DTransportError(
                 "MoveIt service /plan_kinematic_path is unavailable -- is "
-                "g1d_bringup/real_moveit.launch.py running?"
+                "lzh_bringup/real_moveit.launch.py running?"
             )
         # MoveIt plans to the WRIST link; the harness commands the TCP. Convert
         # the target into the wrist frame (same orientation, offset origin) and
@@ -700,6 +739,11 @@ class G1DRosTransport:
             "duration_s": report.duration_s,
             "peak_speed_rad_s": report.max_speed_rad_s,
             "start_error_rad": report.max_start_error_rad,
+            # The commanded final joint positions: the last waypoint of the
+            # trajectory that was sent. The bridge's settle check compares the
+            # MEASURED joints against exactly this, so a diagnostic can
+            # reproduce the comparison offline.
+            "final_positions": [float(v) for v in data.positions[-1]],
             "z_floor_m": (
                 self.z_floor.z_m if (self.z_floor and self.z_floor.enabled) else None
             ),
@@ -748,6 +792,23 @@ class G1DRosTransport:
             )
         result = reply.result
         if result.error_code != 0:  # control_msgs FollowJointTrajectory SUCCESSFUL
+            # GOAL_TOLERANCE_VIOLATED is the G1-D's most common real-execution
+            # outcome, and it is NOT a motion failure: the bridge drives the arm
+            # to the commanded final point and KEEPS HOLDING it, but the measured
+            # joints have not converged inside the bridge's settle window (the
+            # gravity-loaded shoulder creeps). The Cartesian goal was therefore
+            # reached. Measure the ACTUAL Cartesian error before deciding: if the
+            # TCP is where it was asked to be, the move succeeded and the
+            # pipeline must not be torn down -- otherwise every token of a
+            # closed-loop rollout dies on the first slightly-off move.
+            if int(result.error_code) == ERR_GOAL_TOLERANCE_VIOLATED:
+                self._report_tolerance_violation(data, result)
+                if self.tolerance_violation_is_fatal:
+                    raise G1DTransportError(
+                        f"trajectory execution failed (error_code={result.error_code}): "
+                        f"{result.error_string}"
+                    )
+                return
             raise G1DTransportError(
                 f"trajectory execution failed (error_code={result.error_code}): "
                 f"{result.error_string}"
@@ -757,6 +818,64 @@ class G1DRosTransport:
                 f"[g1d-transport] {self.profile.side} trajectory executed "
                 f"({len(data.positions)} points)"
             )
+
+    def _report_tolerance_violation(
+        self, data: TrajectoryData, result: Any
+    ) -> None:
+        """Log the MEASURED Cartesian error after a GOAL_TOLERANCE_VIOLATED abort.
+
+        The bridge keeps holding the final position, so the arm IS at the goal
+        even though the action was aborted. This prints the numbers the
+        operator needs to decide whether to loosen the bridge's
+        ``goal_tolerance_rad`` / ``settle_timeout_sec``:
+        the commanded final joints, the measured joints, the per-joint error,
+        and the resulting TCP error.
+        """
+        try:
+            measured = np.asarray(self.read_joint_positions(), dtype=float)
+        except Exception as exc:  # noqa: BLE001 - diagnostics must never raise
+            measured = np.array([], dtype=float)
+        commanded = np.asarray(data.positions[-1], dtype=float)
+        detail = ""
+        if measured.size == commanded.size:
+            errors = np.abs(measured - commanded)
+            worst = int(np.argmax(errors))
+            detail = (
+                f" max_joint_error={errors[worst]:.4f} rad on "
+                f"{data.joint_names[worst]}"
+            )
+        tcp_error = ""
+        try:
+            target = self._last_commanded_pose
+            if target is not None and measured.size == 7:
+                achieved = self._kin.tcp_pose7(measured)
+                delta = achieved[:3] - np.asarray(target[:3], dtype=float)
+                tcp_error = (
+                    f" tcp_error={np.round(delta, 4).tolist()} m "
+                    f"(|e|={float(np.linalg.norm(delta)) * 1000:.1f} mm)"
+                )
+        except Exception:  # noqa: BLE001 - diagnostics must never raise
+            tcp_error = ""
+        message = (
+            f"[g1d-transport] GOAL_TOLERANCE_VIOLATED on {self.profile.side}: "
+            f"the arm reached the commanded point but the measured joints had not "
+            f"converged inside the bridge's settle window.{detail}{tcp_error}\n"
+            f"[g1d-transport]   the bridge keeps holding the final position, so the "
+            f"move is treated as REACHED. Loosen the bridge's goal_tolerance_rad / "
+            f"settle_timeout_sec if the error is larger than a few millimetres."
+        )
+        if self.verbose:
+            print(message)
+        self.last_tolerance_violation = {
+            "error_string": str(getattr(result, "error_string", "")),
+            "commanded_rad": [float(v) for v in commanded],
+            "measured_rad": [float(v) for v in measured],
+            "error_rad": (
+                [round(float(v), 6) for v in np.abs(measured - commanded)]
+                if measured.size == commanded.size
+                else []
+            ),
+        }
 
     def _trajectory_to_msg(self, data: TrajectoryData) -> Any:
         """The plain :class:`TrajectoryData` -> a ROS ``JointTrajectory`` message."""
