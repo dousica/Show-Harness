@@ -60,7 +60,7 @@ def g1d_ros_environment_errors(
         if not has_lzh_overlay:
             errors.append(
                 f"AMENT_PREFIX_PATH does not contain {expected_install}; "
-                "source /home/yushu/g1d_ros2_lzh/setup_env.sh"
+                "source third_party/g1d_ros2_lzh/setup_env.sh"
             )
     return errors
 

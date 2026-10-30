@@ -168,7 +168,7 @@ def _check_g1d_identity(r: Report, cfg: dict) -> None:
             "G1-D ROS environment",
             "; ".join(environment_errors),
             "export ROS_DOMAIN_ID=42, then source "
-            "/home/yushu/g1d_ros2_lzh/setup_env.sh in a clean shell",
+            "third_party/g1d_ros2_lzh/setup_env.sh in a clean shell",
         )
     else:
         r.ok("G1-D ROS environment", "ROS_DOMAIN_ID=42; LZH overlay only")
@@ -405,7 +405,7 @@ def _check_g1d_ros(r: Report, cfg: dict) -> None:
     except ImportError:
         r.fail("rclpy", "not importable (ROS 2 not sourced)",
                "export ROS_DOMAIN_ID=42 && "
-               "source /home/yushu/g1d_ros2_lzh/setup_env.sh")
+               "source third_party/g1d_ros2_lzh/setup_env.sh")
         return
     try:
         from rclpy.action import ActionClient
@@ -417,7 +417,7 @@ def _check_g1d_ros(r: Report, cfg: dict) -> None:
     except ImportError as exc:  # pragma: no cover - environment guard
         r.fail("rclpy", f"ROS 2 message packages unavailable ({exc})",
                "export ROS_DOMAIN_ID=42 && "
-               "source /home/yushu/g1d_ros2_lzh/setup_env.sh")
+               "source third_party/g1d_ros2_lzh/setup_env.sh")
         return
 
     rb = cfg.get("robot", {}) or {}

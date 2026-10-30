@@ -9,8 +9,8 @@ class G1DRosEnvironmentTests(unittest.TestCase):
     def _env(self, **updates: str) -> dict[str, str]:
         values = {
             "ROS_DOMAIN_ID": "42",
-            "LZH_ROS_WS": "/home/yushu/g1d_ros2_lzh",
-            "AMENT_PREFIX_PATH": "/home/yushu/g1d_ros2_lzh/install/lzh_bringup:/opt/ros/humble",
+            "LZH_ROS_WS": "third_party/g1d_ros2_lzh",
+            "AMENT_PREFIX_PATH": "third_party/g1d_ros2_lzh/install/lzh_bringup:/opt/ros/humble",
         }
         values.update(updates)
         return values

@@ -57,8 +57,8 @@ class CheckSetupTests(unittest.TestCase):
             out = io.StringIO()
             env = {
                 "ROS_DOMAIN_ID": domain,
-                "AMENT_PREFIX_PATH": overlay or "/home/yushu/g1d_ros2_lzh/install/lzh_bringup",
-                "LZH_ROS_WS": "/home/yushu/g1d_ros2_lzh",
+                "AMENT_PREFIX_PATH": overlay or "third_party/g1d_ros2_lzh/install/lzh_bringup",
+                "LZH_ROS_WS": "third_party/g1d_ros2_lzh",
             }
             with patch.dict(os.environ, env), contextlib.redirect_stdout(out):
                 code = main(["--robot-config", str(p), "--no-vlm", "--no-hardware"])

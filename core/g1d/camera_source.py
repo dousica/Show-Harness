@@ -14,7 +14,7 @@ the vision API can consume, with two properties the raw topic does not give you:
 
 The ROS import is LAZY: importing this module on a machine without ROS 2 (the
 offline test suite, a laptop) works fine. Live subscription requires Domain 42
-and the ``/home/yushu/g1d_ros2_lzh/setup_env.sh`` workspace overlay.
+and the ``third_party/g1d_ros2_lzh/setup_env.sh`` workspace overlay.
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ class G1DCameraSource:
             raise ImportError(
                 "rclpy / sensor_msgs are not importable. Source ROS 2 first: "
             "`export ROS_DOMAIN_ID=42` and "
-            "`source /home/yushu/g1d_ros2_lzh/setup_env.sh`."
+            "`source third_party/g1d_ros2_lzh/setup_env.sh`."
             ) from exc
         if not rclpy.ok():
             rclpy.init(args=None)

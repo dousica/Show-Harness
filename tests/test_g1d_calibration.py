@@ -9,6 +9,7 @@ is the ChArUco physical check's job).
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import numpy as np
 import yaml
@@ -29,14 +30,16 @@ try:
 except ImportError:  # pragma: no cover
     _HAS_LOAD_CALIBRATION = False
 
-MEASURED_STEREO = "/home/yushu/.ros/g1d_camera_calibration/head_stereo.yaml"
-MEASURED_HANDEYE = (
-    "/home/yushu/g1d_vision_data/handeye/head_left_20261028_161926_575326/"
-    "handeye_result_20261028_165527_739176.yaml"
+_CALIBRATION_DIR = Path(__file__).resolve().parents[1] / "configs" / "calibration"
+MEASURED_STEREO = str(_CALIBRATION_DIR / "camera" / "head_stereo.yaml")
+MEASURED_HANDEYE = str(
+    _CALIBRATION_DIR
+    / "handeye"
+    / "head_left_20261028_161926_575326"
+    / "handeye_result_20261028_165527_739176.yaml"
 )
-# A checked-in path is a lab-machines-only PATH, not a secret: it names no
-# credential, model, or host. Keep it in one constant so a fork changes it
-# in one place.
+# The measured calibration is committed under configs/calibration/, so these
+# tests run against the repository instead of a lab machine's home directory.
 
 
 class LoadStereoTests(unittest.TestCase):
@@ -152,7 +155,7 @@ class LoadCalibrationTests(unittest.TestCase):
             site = staged.parent / "site_g1d.yaml"
             site.write_text(
                 "calibration:\n"
-                "  stereo_yaml: /home/yushu/.ros/g1d_camera_calibration/head_stereo.yaml\n"
+                f"  stereo_yaml: {MEASURED_STEREO}\n"
                 f"  handeye_yaml: {MEASURED_HANDEYE}\n"
                 "  camera_frame: head_left_camera_optical_frame\n"
                 "  base_frame: torso_link\n",

@@ -90,7 +90,7 @@ the absence of this workspace's install overlay. In a clean terminal:
 
 ```bash
 export ROS_DOMAIN_ID=42
-source /home/yushu/g1d_ros2_lzh/setup_env.sh
+source third_party/g1d_ros2_lzh/setup_env.sh
 ```
 
 The Harness does not start ROS nodes. Start the stack in separate terminals,
@@ -99,17 +99,17 @@ using the same environment in each:
 ```bash
 # Terminal 1: LZH SDK bridge, robot description, MoveIt and RViz
 export ROS_DOMAIN_ID=42
-source /home/yushu/g1d_ros2_lzh/setup_env.sh
+source third_party/g1d_ros2_lzh/setup_env.sh
 ros2 launch lzh_bringup real_moveit.launch.py
 
 # Terminal 2: TeleImager camera publishers
 export ROS_DOMAIN_ID=42
-source /home/yushu/g1d_ros2_lzh/setup_env.sh
+source third_party/g1d_ros2_lzh/setup_env.sh
 ros2 launch lzh_camera_bridge cameras.launch.py show_viewer:=false
 
 # Terminal 3: read-only G1-D preflight
 export ROS_DOMAIN_ID=42
-source /home/yushu/g1d_ros2_lzh/setup_env.sh
+source third_party/g1d_ros2_lzh/setup_env.sh
 python3 scripts/check_setup.py --robot-config configs/robot_g1d.yaml --no-vlm
 ```
 
@@ -122,15 +122,16 @@ SDK2 transport inside `lzh_sdk_bridge` is separate from ROS 2 discovery.
 The robot config requires the site layer. On a new checkout:
 
 ```bash
-cd /home/yushu/harness_lzh
+cd <harness-checkout>
 cp configs/site/g1d.yaml.example configs/site/g1d.yaml
 ```
 
 Edit the ignored `configs/site/g1d.yaml` for the actual machine. It contains the
 selected arm, bridge profile, measured calibration file paths, and frame names.
-The file is ignored by Git so local paths do not become part of a commit. The
-tracked example contains path conventions only; it is not a calibration and
-does not prove those paths exist on another machine.
+The tracked example already points at the committed calibration under
+`configs/calibration/` (relative paths resolve against the checkout root), so a
+fresh checkout works without editing unless the rig differs. The file stays
+ignored by Git so local paths do not become part of a commit.
 
 Configuration precedence matters: `defaults` merge **under**
 `configs/robot_g1d.yaml`; values in the main file override values from the site
@@ -145,7 +146,7 @@ copying the example's value:
 
 ```bash
 export ROS_DOMAIN_ID=42
-source /home/yushu/g1d_ros2_lzh/setup_env.sh
+source third_party/g1d_ros2_lzh/setup_env.sh
 python3 scripts/g1d/capture_z_floor.py --side left --capture
 ```
 
@@ -221,7 +222,7 @@ Read a fresh camera image and call the configured VLM:
 
 ```bash
 export ROS_DOMAIN_ID=42
-source /home/yushu/g1d_ros2_lzh/setup_env.sh
+source third_party/g1d_ros2_lzh/setup_env.sh
 python3 scripts/g1d/vision_detect.py \
   --topic /g1d/cameras/head_left/image_raw \
   --target "steel bearing" \

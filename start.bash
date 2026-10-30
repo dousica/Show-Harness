@@ -2,7 +2,9 @@
 set -Eeuo pipefail
 
 HARNESS_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-ROS_WS="/home/yushu/g1d_ros2_lzh"
+# ROS 2 workspace, vendored as a git submodule. Override with
+# ROS_WS=/path/to/workspace to use a checkout built elsewhere.
+ROS_WS="${ROS_WS:-$HARNESS_DIR/third_party/g1d_ros2_lzh}"
 CAMERA_IP="192.168.123.164"
 NETWORK_INTERFACE="eno2"
 STARTUP_ATTEMPTS=8

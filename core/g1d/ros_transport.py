@@ -105,7 +105,7 @@ def _require_ros():
         raise ImportError(
             "rclpy / moveit_msgs / control_msgs are not importable. Run inside a "
             "shell with ROS 2 Humble sourced: `export ROS_DOMAIN_ID=42` and "
-            "`source /home/yushu/g1d_ros2_lzh/setup_env.sh`."
+            "`source third_party/g1d_ros2_lzh/setup_env.sh`."
         ) from exc
     return {
         "rclpy": rclpy,

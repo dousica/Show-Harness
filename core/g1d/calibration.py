@@ -63,8 +63,19 @@ DEFAULT_BASE_FRAME = "torso_link"
 DEFAULT_CAMERA_FRAME = "head_left_camera_optical_frame"
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
 def _expand(path: str) -> Path:
-    return Path(str(path)).expanduser()
+    """Expand ``~``; resolve repo-relative paths against the checkout root.
+
+    The committed calibration lives under ``configs/calibration/``, so a site
+    config can name it relatively and stay valid from any working directory.
+    """
+    resolved = Path(str(path)).expanduser()
+    if not resolved.is_absolute():
+        resolved = (_REPO_ROOT / resolved).resolve()
+    return resolved
 
 
 def _matrix4(value: Any, name: str) -> np.ndarray:

@@ -44,20 +44,14 @@ vision_api:
 #
 # The relay's /v1/responses endpoint is NOT available (it hangs/errors); only
 # /v1/chat/completions works. That is exactly the dialect the harness uses.
-vlm_backend: inroi
+# Public default. The lab relay is machine-specific: keep its vlm_backends
+# entry in configs/site/g1d.yaml and select it with --vlm-backend <name>.
+vlm_backend: gemini
 
 vlm:
   base_url: http://localhost:8000/v1
 
 vlm_backends:
-  inroi:
-    provider: openai
-    base_url: https://www.inroi.shop/v1
-    model: gpt-5.6-sol
-    api_key_env: G1D_VLM_API_KEY
-    max_tokens: 512
-    temperature: 0.0
-    max_retries: 5
   gateway:
     provider: openai
     base_url: https://api.openai.com/v1
