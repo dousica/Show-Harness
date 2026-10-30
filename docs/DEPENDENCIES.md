@@ -8,7 +8,7 @@ Run `bash scripts/bootstrap.sh` to satisfy everything marked **vendored** or
 
 | What | Where | Notes |
 |---|---|---|
-| G1-D ROS 2 workspace | `third_party/g1d_ros2_lzh` (git submodule) | Source of `setup_env.sh`, `lzh_bringup/real_moveit.launch.py` and `lzh_camera_bridge/cameras.launch.py`. Pin the submodule commit, not a branch. |
+| G1-D ROS 2 workspace | `third_party/g1d_ros2_lzh` (git submodule of `dousica/harness_g1d`) | Source of `setup_env.sh`, `lzh_bringup/real_moveit.launch.py` and `lzh_camera_bridge/cameras.launch.py`. Pin the submodule commit, not a branch. |
 | Camera calibration | `configs/calibration/camera/` | `head_stereo.yaml` (stereo extrinsics), plus left/right/wrist intrinsics. |
 | Hand-eye calibration | `configs/calibration/handeye/` | `handeye_result_*.yaml`; the loader picks the newest by mtime. Sample images from the capture session are **not** committed. |
 

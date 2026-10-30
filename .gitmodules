@@ -1,0 +1,3 @@
+[submodule "third_party/g1d_ros2_lzh"]
+	path = third_party/g1d_ros2_lzh
+	url = https://github.com/dousica/harness_g1d.git
