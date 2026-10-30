@@ -87,6 +87,12 @@ defaults:
   - site/g1d.yaml               #   your rig's identity (required)
   - {path: backends/internal.yaml, optional: true}
 
+# Machine-local overrides that must OUTRANK this file (e.g. which vlm_backend
+# this rig actually has credentials for). Git-ignored and absent in a fresh
+# clone, so the public default above stays the public default.
+overlays:
+  - {path: site/g1d.local.yaml, optional: true}
+
 # ----- Camera calibration policy ----------------------------------------------
 # Rig-specific calibration paths and camera/base frames live in the required
 # configs/site/g1d.yaml layer. The site layer is merged UNDER this file, so keep

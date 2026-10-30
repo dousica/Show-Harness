@@ -51,6 +51,7 @@ prompts/v2/
 configs/site/franka.yaml
 configs/site/piper_arms.yaml
 configs/site/g1d.yaml
+configs/site/g1d.local.yaml
 configs/backends/
 configs/experiments/
 release/leakcheck.internal-patterns

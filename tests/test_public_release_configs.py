@@ -109,7 +109,9 @@ class PublicReleaseConfigTests(unittest.TestCase):
         shutil.copytree(
             REPO / "configs",
             pub,
-            ignore=shutil.ignore_patterns("secrets.env", "secrets.local.env", "xiaomimi.env"),
+            ignore=shutil.ignore_patterns(
+                "secrets.env", "secrets.local.env", "xiaomimi.env", "*.local.yaml"
+            ),
         )
         for rel in _excluded_config_paths():
             target = pub / rel.rstrip("/")
